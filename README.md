@@ -48,8 +48,26 @@ The following environment variables can be set in the `.env` file:
 - `SPOTIFY_CLIENT_ID` - Your Spotify application's client ID (required)
 - `SPOTIFY_CLIENT_SECRET` - Your Spotify application's client secret (required)
 - `SPOTIFY_REDIRECT_URI` - Custom redirect URI for authentication (optional, defaults to `http://localhost:8888/callback`)
+- `SPOTIFY_TOKEN_PATH` - Custom path for storing the authentication token (optional)
 
 If you change the redirect URI, make sure to add it to your Spotify app settings in the Developer Dashboard.
+
+### Configuration File Locations
+
+The script will look for the `.env` file in the following locations (in order):
+
+1. The script's directory
+2. `~/.config/spotify-reverse-playlist/`
+
+This makes it easy to run the script from cron jobs or other scheduled tasks.
+
+### Token Storage
+
+The authentication token is stored in a JSON file. The location is determined as follows:
+
+1. If `SPOTIFY_TOKEN_PATH` is set in the environment or `.env` file, that location is used
+2. If the script directory is writable, the token is stored there as `.spotify-token.json`
+3. Otherwise, it's stored in `~/.config/spotify-reverse-playlist/.spotify-token.json`
 
 ## Usage
 
@@ -90,7 +108,6 @@ Playlist IDs can be found in the Spotify URL:
 - You must have permission to modify both playlists
 - The script requires the `playlist-read-private`, `playlist-modify-public`, and `playlist-modify-private` scopes
 - For large playlists, the process may take some time due to Spotify API rate limits
-- The authentication token is stored in a file called `.spotify-token.json` in the same directory as the script
 
 ## Running as a Scheduled Task
 
@@ -100,10 +117,14 @@ Add a line to your crontab to run the script nightly:
 
 ```bash
 # Run at 2 AM every day
-0 2 * * * cd /path/to/script && ./spotify-reverse-playlist.js <sourcePlaylistId> <destinationPlaylistId> >> /path/to/logfile.log 2>&1
+0 2 * * * /path/to/spotify-reverse-playlist.js <sourcePlaylistId> <destinationPlaylistId> >> /path/to/logfile.log 2>&1
 ```
 
-Note: For scheduled tasks, make sure the authentication token is already set up by running the script manually once.
+For cron jobs, it's recommended to:
+
+1. Use absolute paths to the script
+2. Set up the `.env` file in `~/.config/spotify-reverse-playlist/`
+3. Run the script manually once to authenticate before setting up the cron job
 
 ### Using Task Scheduler (Windows)
 
@@ -120,7 +141,7 @@ Note: For scheduled tasks, make sure the authentication token is already set up 
   - Make sure your Client ID and Client Secret are correct
   - Verify that you've added the correct redirect URI in your Spotify app settings
   - Try running with the `--refresh` flag to force a new authentication
-  - Delete the `.spotify-token.json` file to start fresh
+  - Delete the token file to start fresh
 
 - **Permission errors**:
 
@@ -128,7 +149,14 @@ Note: For scheduled tasks, make sure the authentication token is already set up 
   - Check that you have permission to modify the destination playlist
 
 - **Rate limiting**:
+
   - The script includes retry logic, but you may need to run it during off-peak hours for very large playlists
+
+- **Cron job not working**:
+  - Check that the script has execute permissions
+  - Verify that the `.env` file is in the correct location
+  - Make sure the token file exists and is valid
+  - Check the cron job's log file for errors
 
 ## License
 

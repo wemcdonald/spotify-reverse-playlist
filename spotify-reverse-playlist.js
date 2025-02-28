@@ -17,9 +17,34 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { exec } = require('child_process');
+const os = require('os');
+
+// Load environment variables from multiple possible locations
+function loadEnvConfig() {
+  const configLocations = [
+    // Script directory
+    path.join(__dirname, '.env'),
+    // User config directory
+    path.join(os.homedir(), '.config', 'spotify-reverse-playlist', '.env')
+  ];
+
+  let loaded = false;
+  for (const configPath of configLocations) {
+    if (fs.existsSync(configPath)) {
+      dotenv.config({ path: configPath });
+      console.log(`Loaded configuration from ${configPath}`);
+      loaded = true;
+      break;
+    }
+  }
+
+  if (!loaded) {
+    console.log('No .env file found. Using environment variables if available.');
+  }
+}
 
 // Load environment variables
-dotenv.config();
+loadEnvConfig();
 
 // Constants
 const SPOTIFY_API_BASE_URL = 'https://api.spotify.com/v1';
@@ -30,7 +55,38 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:8888/callback';
 const SCOPES = 'playlist-read-private playlist-modify-private playlist-modify-public';
-const TOKEN_PATH = path.join(__dirname, '.spotify-token.json');
+
+// Determine token storage location
+const getTokenPath = () => {
+  // If a custom token path is specified in env, use that
+  if (process.env.SPOTIFY_TOKEN_PATH) {
+    return process.env.SPOTIFY_TOKEN_PATH;
+  }
+  
+  // Check if we can write to the script directory
+  const scriptDirPath = path.join(__dirname, '.spotify-token.json');
+  try {
+    // Try to write to script directory
+    fs.accessSync(path.dirname(scriptDirPath), fs.constants.W_OK);
+    return scriptDirPath;
+  } catch (error) {
+    // Fall back to user config directory
+    const userConfigDir = path.join(os.homedir(), '.config', 'spotify-reverse-playlist');
+    
+    // Create the directory if it doesn't exist
+    if (!fs.existsSync(userConfigDir)) {
+      try {
+        fs.mkdirSync(userConfigDir, { recursive: true });
+      } catch (err) {
+        console.warn(`Could not create config directory: ${err.message}`);
+      }
+    }
+    
+    return path.join(userConfigDir, '.spotify-token.json');
+  }
+};
+
+const TOKEN_PATH = getTokenPath();
 
 // CLI setup
 program
@@ -77,6 +133,7 @@ async function main() {
     console.log(`Starting playlist reversal process...`);
     console.log(`Source playlist: ${sourcePlaylistId}`);
     console.log(`Destination playlist: ${destPlaylistId}`);
+    console.log(`Using token storage: ${TOKEN_PATH}`);
 
     // Validate inputs
     if (!sourcePlaylistId || !destPlaylistId) {
