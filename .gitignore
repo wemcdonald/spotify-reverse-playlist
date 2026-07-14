@@ -9,6 +9,9 @@ package-lock.json
 # Spotify token
 .spotify-token.json
 
+# Runtime failure-state (anti-spam debounce)
+.spotify-sync-state.json
+
 # Logs
 *.log
 npm-debug.log*
